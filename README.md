@@ -296,23 +296,6 @@ Handler:
 lambda_function.lambda_handler
 ```
 
-Package and upload the backend files from the `lambda/` folder:
-
-```text
-lambda/
-├── agent.py
-├── db.py
-├── kroger.py
-├── lambda_function.py
-├── obs.py
-├── packages.py
-├── spoonacular.py
-├── system_prompt.py
-├── tools.py
-├── seed_recipes.py
-└── requirements.txt
-```
-
 From the project root, run:
 
 ```bash
