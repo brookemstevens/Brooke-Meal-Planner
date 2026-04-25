@@ -202,7 +202,7 @@ For Lambda deployment, package these dependencies with the backend code or provi
 | `SPOONACULAR_API_KEY` | Yes for recipe search | Spoonacular API key. Used for recipe search and recipe details. |
 | `KROGER_CLIENT_ID` | Yes for live grocery prices | Kroger Public API client ID. |
 | `KROGER_CLIENT_SECRET` | Yes for live grocery prices | Kroger Public API client secret. |
-| `KROGER_ZIP_CODE` | Optional | ZIP code used to find the nearest Kroger-family store. Defaults to `37203`. |
+| `KROGER_ZIP_CODE` | Optional | ZIP code used to find the nearest Kroger-family store. Defaults to `37203` (Nashville). |
 
 ### Optional Backend Configuration
 
