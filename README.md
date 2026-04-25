@@ -274,7 +274,7 @@ In the AWS console:
 The default model ID in the code is:
 
 ```text
-anthropic.claude-3-5-sonnet-20241022-v2:0
+us.anthropic.claude-sonnet-4-6
 ```
 
 You can override this with the `MODEL_ID` environment variable.
@@ -286,7 +286,7 @@ You can override this with the `MODEL_ID` environment variable.
 Runtime:
 
 ```text
-Python 3.11 or newer
+Python 3.12
 ```
 
 Handler:
