@@ -22,6 +22,7 @@ The project is designed for a personal meal-planning use case, but the architect
 - Persistent user preferences, dislikes, pantry items, and meal plans
 - Recipe search through Spoonacular
 - Recipe caching in DynamoDB to reduce Spoonacular quota usage
+- Support for user-added cookbook recipes alongside Spoonacular recipes
 - Kroger-family store product lookup for realistic grocery package sizes and prices
 - Curated package-size fallback catalog when live Kroger data is unavailable
 - Structured shopping-list rendering in the frontend
@@ -137,6 +138,8 @@ A max-turns limit prevents runaway tool loops.
 
 The model never directly receives a different user's ID. The `user_id` is passed implicitly by the backend during tool dispatch.
 
+Recipe IDs are passed and stored as strings to support both numeric Spoonacular IDs (e.g. `"649030"`) and user-defined cookbook IDs (e.g. `"cookbook_baked_tilapia"`). Recipe-detail lookups check the DynamoDB cache first, then fall back to Spoonacular only for numeric IDs — non-numeric IDs that miss the cache return a clear error rather than calling out to Spoonacular.
+
 ---
 
 ### 5. DynamoDB Persistence
@@ -165,7 +168,8 @@ USER#<user_id>         PANTRY#<item>
 USER#<user_id>         MEALPLAN#<date>
 USER#<user_id>         DISLIKED#<recipe_id>
 USER#<user_id>         CHAT
-CACHE                  RECIPE#<recipe_id>
+CACHE                  RECIPE#<recipe_id>           # Spoonacular ID, e.g. RECIPE#649030
+CACHE                  RECIPE#cookbook_<slug>       # User-added recipe, e.g. RECIPE#cookbook_baked_tilapia
 CACHE                  KROGER_LOC#<zip_code>
 ```
 
@@ -433,6 +437,64 @@ This makes later demo and evaluation runs less likely to burn through Spoonacula
 
 ---
 
+## Optional: Add Cookbook Recipes
+
+In addition to recipes pulled from Spoonacular, the agent can use recipes you add yourself — recipes from a personal cookbook, family recipes, or anything else not on Spoonacular.
+
+Cookbook recipes use string IDs prefixed with `cookbook_` so they cannot collide with Spoonacular's numeric IDs. They live in the same `CACHE` partition as Spoonacular recipes, and the agent treats them identically once they are in the cache.
+
+### Recipe shape
+
+Match the shape produced by Spoonacular detail responses (which is what `_slim_recipe_details` in `tools.py` returns). Each recipe should have:
+
+```json
+{
+  "id": "cookbook_baked_tilapia",
+  "title": "Baked Tilapia",
+  "ready_in_minutes": 20,
+  "servings": 4,
+  "ingredients": [
+    {"name": "tilapia fillets", "amount": 4, "unit": "", "original": "4 tilapia fillets (6 ounces each)"},
+    {"name": "butter", "amount": 3, "unit": "tbsp", "original": "3 Tbsp butter, melted"}
+  ],
+  "instructions": "Place fish in a baking dish. ...",
+  "source_url": null
+}
+```
+
+A few conventions:
+
+- `ingredients[].name` is what `get_realistic_package_sizes` looks up against Kroger and the curated catalog. Use simple terms (`"chicken breast"`, `"olive oil"`) rather than descriptors (`"organic free-range chicken breast"`).
+- `ingredients[].original` is the human-readable version that the agent shows to the user.
+- `unit` can be an empty string for whole-item ingredients (e.g. tilapia fillets, lemons).
+
+### Storing a cookbook recipe in DynamoDB
+
+Each recipe is one row in the `CACHE` partition:
+
+```text
+pk           = "CACHE"
+sk           = "RECIPE#cookbook_baked_tilapia"
+recipe_json  = (the JSON blob above, stringified)
+cached_at    = (unix timestamp)
+```
+
+`recipe_json` is stored as a string because ingredient amounts are floats and DynamoDB's `boto3` resource returns numbers as `Decimal`, which is not JSON-serializable without extra plumbing. Storing as a string sidesteps that.
+
+You can add cookbook recipes through the DynamoDB console (Create item → JSON view) or by writing a small local script that calls `db.save_cached_recipe(recipe_id, recipe_dict)` for each.
+
+### How the agent uses them
+
+Once a cookbook recipe is in the cache, the agent can:
+
+- Fetch its details via `get_recipe_details` (uses the cache, never calls Spoonacular for `cookbook_*` IDs)
+- Include it in saved meal plans
+- Mark it as disliked
+
+Cookbook recipes do not appear in `search_recipes` results, since those queries hit Spoonacular only. The user (or the agent on the user's behalf) needs to know the recipe ID to use a cookbook recipe — for example, by referencing it directly in chat (`"use cookbook_baked_tilapia for Wednesday"`).
+
+---
+
 ## Local Development Notes
 
 This project is primarily designed to run on AWS because it depends on:
@@ -520,6 +582,7 @@ Useful event types include:
 - `APP_TOKEN` is a lightweight shared-secret mechanism, not full authentication.
 - Recipe and grocery quality depends on the external APIs returning useful results.
 - The curated grocery package catalog is a fallback and may not match local prices exactly.
+- Cookbook recipes must be added directly to DynamoDB; the agent cannot create new cookbook entries on its own.
 
 ---
 
