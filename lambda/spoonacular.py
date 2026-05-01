@@ -6,7 +6,7 @@ Three endpoints cover the use case:
   - recipeInformation: full recipe detail once the user picks one
 
 Docs: https://spoonacular.com/food-api/docs
-Free tier: ~150 requests/day.
+Free tier: ~50 requests/day.
 """
 import os
 from typing import Optional
@@ -85,7 +85,7 @@ def complex_search(
     return _get("/recipes/complexSearch", params)
 
 
-def get_recipe(recipe_id: int) -> dict:
+def get_recipe(recipe_id: str) -> dict:
     """Full recipe information for a specific recipe."""
     return _get(
         f"/recipes/{recipe_id}/information",
